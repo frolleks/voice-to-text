@@ -1,0 +1,5 @@
+pyaudio
+speech_recognition
+dearpygui
+pynput
+pyautogui

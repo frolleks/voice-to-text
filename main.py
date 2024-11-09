@@ -47,7 +47,11 @@ def on_click(x, y, button, pressed):
     # Callback function for mouse events.
     global is_recording, recording_thread
 
-    if button == mouse.Button.x1 or button == mouse.Button.x2:
+    if (
+        button == mouse.Button.x1
+        or button == mouse.Button.x2
+        or button == mouse.Button.middle
+    ):
         if pressed:
             if not is_recording:
                 is_recording = True

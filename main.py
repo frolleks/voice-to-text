@@ -81,7 +81,7 @@ def main():
     # Sets up the Dear PyGui application and runs the main event loop.
     dpg.create_context()
     dpg.create_viewport(
-        title="Speech to Text App", min_width=300, min_height=100, width=600, height=200
+        title="Speech to Text App", min_width=600, min_height=100, width=600, height=100
     )
 
     with dpg.window(label="Speech to Text", tag="main_window"):

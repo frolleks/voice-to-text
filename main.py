@@ -4,13 +4,12 @@ import speech_recognition as sr
 import dearpygui.dearpygui as dpg
 from pynput import mouse
 import pyautogui
-
+from translate import Translator
 
 CHUNK = 1024
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
 RATE = 16000
-
 
 is_recording = False
 frames = []
@@ -18,6 +17,35 @@ stream = None
 recording_thread = None
 
 recognizer = sr.Recognizer()
+
+# Supported languages mapping (ISO 639-1 codes)
+languages = {
+    "Afrikaans": "af",
+    "Arabic": "ar",
+    "Bengali": "bn",
+    "Chinese (Simplified)": "zh",
+    "Chinese (Traditional)": "zh-TW",
+    "Czech": "cs",
+    "Danish": "da",
+    "Dutch": "nl",
+    "English": "en",
+    "French": "fr",
+    "German": "de",
+    "Greek": "el",
+    "Hindi": "hi",
+    "Italian": "it",
+    "Indonesian": "id",
+    "Japanese": "ja",
+    "Korean": "ko",
+    "Polish": "pl",
+    "Portuguese": "pt",
+    "Russian": "ru",
+    "Spanish": "es",
+    "Swedish": "sv",
+    "Turkish": "tr",
+    "Vietnamese": "vi",
+    # Add more languages as needed
+}
 
 
 def record_audio():
@@ -43,15 +71,50 @@ def record_audio():
     p.terminate()
 
 
+def process_audio(audio_data):
+    try:
+        input_language_name = dpg.get_value("input_language")
+        input_language_code = languages.get(input_language_name, "en")
+        output_language_name = dpg.get_value("output_language")
+        output_language_code = languages.get(output_language_name, "en")
+
+        # Recognize speech
+        text = recognizer.recognize_google(audio_data, language=input_language_code)
+        print(f"Recognized Text ({input_language_name}): {text}")
+
+        # Update the GUI with recognized text
+        dpg.set_value("input_box", text)
+
+        # Translate the text asynchronously
+        def translation_thread():
+            try:
+                translator = Translator(
+                    to_lang=output_language_code, from_lang=input_language_code
+                )
+                translated_text = translator.translate(text)
+                print(f"Translated Text ({output_language_name}): {translated_text}")
+
+                # Update the GUI and type the text
+                dpg.set_value("translated_box", translated_text)
+                pyautogui.typewrite(translated_text)
+            except Exception as e:
+                print(f"Translation error: {e}")
+
+        threading.Thread(target=translation_thread).start()
+
+    except sr.UnknownValueError:
+        print("Could not understand audio")
+    except sr.RequestError as e:
+        print(f"Could not request results; {e}")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+
 def on_click(x, y, button, pressed):
     # Callback function for mouse events.
     global is_recording, recording_thread
 
-    if (
-        button == mouse.Button.x1
-        or button == mouse.Button.x2
-        or button == mouse.Button.middle
-    ):
+    if button in [mouse.Button.x1, mouse.Button.x2, mouse.Button.middle]:
         if pressed:
             if not is_recording:
                 is_recording = True
@@ -64,40 +127,40 @@ def on_click(x, y, button, pressed):
                 recording_thread.join()
                 print("Recording stopped.")
 
-                audio_data = b"".join(frames)
+                audio_data_bytes = b"".join(frames)
+                audio_data = sr.AudioData(audio_data_bytes, RATE, 2)
 
-                audio = sr.AudioData(audio_data, RATE, 2)
-                try:
-
-                    text = recognizer.recognize_google(audio)
-                    print(f"Recognized Text: {text}")
-
-                    pyautogui.typewrite(text)
-
-                    dpg.set_value("input_box", text)
-                except sr.UnknownValueError:
-                    print("Could not understand audio")
-                except sr.RequestError as e:
-                    print(f"Could not request results; {e}")
+                # Process audio in a separate thread
+                threading.Thread(target=process_audio, args=(audio_data,)).start()
 
 
 def main():
     # Sets up the Dear PyGui application and runs the main event loop.
     dpg.create_context()
     dpg.create_viewport(
-        title="Speech to Text App", min_width=600, min_height=100, width=600, height=100
+        title="Speech to Text App", min_width=600, min_height=300, width=600, height=300
     )
 
     with dpg.window(label="Speech to Text", tag="main_window"):
         with dpg.group(horizontal=False):
             dpg.add_text("Recognized Text:")
             dpg.add_input_text(default_value="", tag="input_box", width=-1)
-
-    def on_viewport_resize(sender, app_data):
-        width, height = app_data[0], app_data[1]
-        print(f"Viewport resized: width={width}, height={height}")
-
-    dpg.set_viewport_resize_callback(on_viewport_resize)
+            dpg.add_text("Translated Text:")
+            dpg.add_input_text(default_value="", tag="translated_box", width=-1)
+            dpg.add_combo(
+                items=list(languages.keys()),
+                default_value="English",
+                label="Input Language",
+                tag="input_language",
+                width=-1,
+            )
+            dpg.add_combo(
+                items=list(languages.keys()),
+                default_value="Spanish",
+                label="Output Language",
+                tag="output_language",
+                width=-1,
+            )
 
     dpg.setup_dearpygui()
     dpg.show_viewport()

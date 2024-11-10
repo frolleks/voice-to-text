@@ -1,5 +1,6 @@
 pyaudio
-speech_recognition
+speechrecognition
 dearpygui
 pynput
 pyautogui
+translate
